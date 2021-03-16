@@ -695,7 +695,7 @@ class Encoder(nn.Module):
         self.w_dim = w_dim
         log_size = int(math.log(size, 2))
         
-        self.n_latents = log_size*2 - 2
+        self.n_latents = 1#log_size*2 - 2
         
         convs = [ConvLayer(3, channels[size], 1)]
 
@@ -711,4 +711,4 @@ class Encoder(nn.Module):
 
     def forward(self, input):
         out = self.convs(input)
-        return out.view(len(input), self.n_latents, self.w_dim)
+        return out.view(len(input),  self.w_dim)#self.n_latents,
