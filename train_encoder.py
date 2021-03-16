@@ -17,7 +17,7 @@ from model import Encoder#, Generator, Discriminator
 from dataset import MultiResolutionDataset
 
 import sys
-sys.path.insert(0, '/content/stylegan2-encoder-pytorch/stylegan2-ada-pytorch')
+sys.path.insert(0, '%s/stylegan2-ada-pytorch' %os.getcwd())
 import legacy
 import dnnlib
 
