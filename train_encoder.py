@@ -13,8 +13,13 @@ import torchvision
 from torchvision import transforms, utils
 from tqdm import tqdm
 
-from model import Encoder, Generator, Discriminator
+from model import Encoder#, Generator, Discriminator
 from dataset import MultiResolutionDataset
+
+import sys
+sys.path.insert(0, '/content/stylegan2-encoder-pytorch/stylegan2-ada-pytorch')
+import legacy
+import dnnlib
 
 try:
     from tensorboardX import SummaryWriter
@@ -113,9 +118,9 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
 
     requires_grad(generator, False)
     
-    truncation = 0.7
-    trunc = generator.mean_latent(4096).detach()
-    trunc.requires_grad = False
+    #truncation = 0.7
+    #trunc = generator.mean_latent(4096).detach()
+    #trunc.requires_grad = False
     
     if SummaryWriter and args.tensorboard:
         logger = SummaryWriter(logdir='./checkpoint')    
@@ -136,15 +141,21 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
         real_img = next(loader)
         real_img = real_img.to(device)
         
+        """
         latents = encoder(real_img)
+        
         recon_img, _ = generator([latents],
-                                 input_is_latent=True,
+                                 input_is_latent=False,
                                  truncation=truncation,
                                  truncation_latent=trunc,
                                  randomize_noise=False)
+        """
+        z = encoder(real_img)
+        recon_img = generator(z=z, c=None)
 
-        recon_pred = discriminator(recon_img)
-        real_pred = discriminator(real_img)
+
+        recon_pred = discriminator(recon_img, None)
+        real_pred = discriminator(real_img, None)
         d_loss = d_logistic_loss(real_pred, recon_pred)
 
         loss_dict["d"] = d_loss
@@ -157,7 +168,7 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
 
         if d_regularize:
             real_img.requires_grad = True
-            real_pred = discriminator(real_img)
+            real_pred = discriminator(real_img, None)
             r1_loss = d_r1_loss(real_pred, real_img)
 
             discriminator.zero_grad()
@@ -174,12 +185,16 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
         real_img = real_img.detach()
         real_img.requires_grad = False
 
+        """
         latents = encoder(real_img)
         recon_img, _ = generator([latents], 
-                                 input_is_latent=True,
+                                 input_is_latent=False,
                                  truncation=truncation,
                                  truncation_latent=trunc,
                                  randomize_noise=False)
+        """
+        z = encoder(real_img)
+        recon_img = generator(z=z, c=None)
 
         recon_vgg_loss = vgg_loss(recon_img, real_img)
         loss_dict["vgg"] = recon_vgg_loss * args.vgg
@@ -187,7 +202,7 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
         recon_l2_loss = F.mse_loss(recon_img, real_img)
         loss_dict["l2"] = recon_l2_loss * args.l2
         
-        recon_pred = discriminator(recon_img)
+        recon_pred = discriminator(recon_img, None)
         adv_loss = g_nonsaturating_loss(recon_pred) * args.adv
         loss_dict["adv"] = adv_loss
 
@@ -231,7 +246,7 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
                     range=(-1, 1),
                 )
 
-        if i % 10000 == 0:
+        if i % 1000 == 0:
             torch.save(
                 {
                     "e": encoder.state_dict(),
@@ -272,17 +287,25 @@ if __name__ == "__main__":
     args.start_iter = 0
 
     print("load generator:", args.g_ckpt)
-    g_ckpt = torch.load(args.g_ckpt, map_location=lambda storage, loc: storage)
-    g_args = g_ckpt['args']
+    #g_ckpt = torch.load(args.g_ckpt, map_location=lambda storage, loc: storage)
+    #g_args = g_ckpt['args']
     
-    args.size = g_args.size
-    args.latent = g_args.latent
-    args.n_mlp = g_args.n_mlp
-    args.channel_multiplier = g_args.channel_multiplier
+    args.size = 256#g_args.size
+    args.latent = 512#g_args.latent
+    args.n_mlp = 8#g_args.n_mlp
+    args.channel_multiplier = 1#g_args.channel_multiplier
     
     encoder = Encoder(args.size, args.latent).to(device)
-    generator = Generator(args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier).to(device)
-    discriminator = Discriminator(args.size, channel_multiplier=args.channel_multiplier).to(device)
+    
+    #generator = Generator(args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier).to(device)
+    #discriminator = Discriminator(args.size, channel_multiplier=args.channel_multiplier).to(device)
+
+    #Create Generator And Discriminator
+    network_pkl = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/transfer-learning-source-nets/ffhq-res256-mirror-paper256-noaug.pkl'
+    with dnnlib.util.open_url(network_pkl) as f:
+      generator = legacy.load_network_pkl(f)['G_ema'].cuda()
+    with dnnlib.util.open_url(network_pkl) as f:
+      discriminator = legacy.load_network_pkl(f)['D'].cuda()
 
     e_optim = optim.Adam(
         encoder.parameters(),
@@ -296,9 +319,9 @@ if __name__ == "__main__":
         betas=(0.9, 0.99),
     )
     
-    generator.load_state_dict(g_ckpt["g_ema"])
-    discriminator.load_state_dict(g_ckpt["d"])
-    d_optim.load_state_dict(g_ckpt["d_optim"])
+    #generator.load_state_dict(g_ckpt["g_ema"])
+    #discriminator.load_state_dict(g_ckpt["d"])
+    #d_optim.load_state_dict(g_ckpt["d_optim"])
     
     if args.e_ckpt is not None:
         print("resume training:", args.e_ckpt)
