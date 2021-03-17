@@ -329,9 +329,9 @@ if __name__ == "__main__":
 
         #encoder.load_state_dict(e_ckpt)
         encoder.load_state_dict(e_ckpt["e"])
-        #e_optim.load_state_dict(e_ckpt["e_optim"])
+        e_optim.load_state_dict(e_ckpt["e_optim"])
         discriminator.load_state_dict(e_ckpt["d"])
-        #d_optim.load_state_dict(e_ckpt["d_optim"])
+        d_optim.load_state_dict(e_ckpt["d_optim"])
         
         try:
             ckpt_name = os.path.basename(args.e_ckpt)
