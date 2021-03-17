@@ -328,10 +328,10 @@ if __name__ == "__main__":
         e_ckpt = torch.load(args.e_ckpt, map_location=lambda storage, loc: storage)
 
         encoder.load_state_dict(e_ckpt)
-        #encoder.load_state_dict(e_ckpt["e"])
-        #e_optim.load_state_dict(e_ckpt["e_optim"])
-        #discriminator.load_state_dict(e_ckpt["d"])
-        #d_optim.load_state_dict(e_ckpt["d_optim"])
+        encoder.load_state_dict(e_ckpt["e"])
+        e_optim.load_state_dict(e_ckpt["e_optim"])
+        discriminator.load_state_dict(e_ckpt["d"])
+        d_optim.load_state_dict(e_ckpt["d_optim"])
         
         try:
             ckpt_name = os.path.basename(args.e_ckpt)
