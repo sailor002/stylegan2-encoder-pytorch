@@ -13,7 +13,7 @@ import torchvision
 from torchvision import transforms, utils
 from tqdm import tqdm
 
-from model import Encoder#, Generator, Discriminator
+from model import Encoder, Discriminator#, Generator
 from dataset import MultiResolutionDataset
 
 import sys
@@ -154,8 +154,8 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
         recon_img = generator(z=z, c=None)
 
 
-        recon_pred = discriminator(recon_img, None)
-        real_pred = discriminator(real_img, None)
+        recon_pred = discriminator(recon_img)
+        real_pred = discriminator(real_img)
         d_loss = d_logistic_loss(real_pred, recon_pred)
 
         loss_dict["d"] = d_loss
@@ -168,7 +168,7 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
 
         if d_regularize:
             real_img.requires_grad = True
-            real_pred = discriminator(real_img, None)
+            real_pred = discriminator(real_img)
             r1_loss = d_r1_loss(real_pred, real_img)
 
             discriminator.zero_grad()
@@ -202,7 +202,7 @@ def train(args, loader, encoder, generator, discriminator, e_optim, d_optim, dev
         recon_l2_loss = F.mse_loss(recon_img, real_img)
         loss_dict["l2"] = recon_l2_loss * args.l2
         
-        recon_pred = discriminator(recon_img, None)
+        recon_pred = discriminator(recon_img)
         adv_loss = g_nonsaturating_loss(recon_pred) * args.adv
         loss_dict["adv"] = adv_loss
 
@@ -298,14 +298,14 @@ if __name__ == "__main__":
     encoder = Encoder(args.size, args.latent).to(device)
     
     #generator = Generator(args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier).to(device)
-    #discriminator = Discriminator(args.size, channel_multiplier=args.channel_multiplier).to(device)
+    discriminator = Discriminator(args.size, channel_multiplier=args.channel_multiplier).to(device)
 
     #Create Generator And Discriminator
     network_pkl = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/transfer-learning-source-nets/ffhq-res256-mirror-paper256-noaug.pkl'
     with dnnlib.util.open_url(network_pkl) as f:
       generator = legacy.load_network_pkl(f)['G_ema'].cuda()
-    with dnnlib.util.open_url(network_pkl) as f:
-      discriminator = legacy.load_network_pkl(f)['D'].cuda()
+    #with dnnlib.util.open_url(network_pkl) as f:
+    #  discriminator = legacy.load_network_pkl(f)['D'].cuda()
 
     e_optim = optim.Adam(
         encoder.parameters(),
@@ -327,11 +327,11 @@ if __name__ == "__main__":
         print("resume training:", args.e_ckpt)
         e_ckpt = torch.load(args.e_ckpt, map_location=lambda storage, loc: storage)
 
-        encoder.load_state_dict(e_ckpt)
+        #encoder.load_state_dict(e_ckpt)
         encoder.load_state_dict(e_ckpt["e"])
-        e_optim.load_state_dict(e_ckpt["e_optim"])
+        #e_optim.load_state_dict(e_ckpt["e_optim"])
         discriminator.load_state_dict(e_ckpt["d"])
-        d_optim.load_state_dict(e_ckpt["d_optim"])
+        #d_optim.load_state_dict(e_ckpt["d_optim"])
         
         try:
             ckpt_name = os.path.basename(args.e_ckpt)
